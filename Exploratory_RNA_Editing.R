@@ -167,3 +167,5 @@ countSynTs <- synRatiosdf$n[1]
 countSynTv <- synRatiosdf$n[2]
 synTsTv2 <- countSynTv/countSynTs
 ### synonymous raw Ts/Tv ratio is 1:0.57 
+
+sessionInfo()
