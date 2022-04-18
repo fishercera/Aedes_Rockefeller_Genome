@@ -6,7 +6,11 @@ breakpoints according to MUMmer’s manual of how to interpret what the
 breakpoints are.
 
 ``` r
+<<<<<<< HEAD
 dff <- read.delim("D:/Aedes_Nanopore_Genomes/6_Analysis/GenomeAlignment/RK_on_LVP/RKv4-on-LVPChroms-Show-Diff-pid85.l10000.REF.txt", sep="\t", header=TRUE)
+=======
+dff <- read.delim("RKv4-on-LVPChroms-Show-Diff-pid85.l10000.REF.txt", sep="\t", header=TRUE)
+>>>>>>> origin/main
 colnames(dff) <- c("Chromosome", "Type", "Ref.Start", "Ref.End", "Ref.Length", "Extra6", "Extra7")
 ```
 
@@ -45,8 +49,12 @@ table(dff$Type)
 ##### Get these numbers broken down by chromosome
 
 ``` r
+<<<<<<< HEAD
 # "Other Breakpoint"
 table(dff.BRK$Chromosome)  
+=======
+table(dff.BRK$Chromosome)
+>>>>>>> origin/main
 ```
 
     ## 
@@ -54,7 +62,10 @@ table(dff.BRK$Chromosome)
     ## 2 2 2
 
 ``` r
+<<<<<<< HEAD
 # "Inversion with possible relocation"
+=======
+>>>>>>> origin/main
 table(dff.INV$Chromosome)
 ```
 
@@ -63,7 +74,10 @@ table(dff.INV$Chromosome)
     ## 26 43 58
 
 ``` r
+<<<<<<< HEAD
 # "Relocation - same chromosome"
+=======
+>>>>>>> origin/main
 table(dff.JMP$Chromosome)
 ```
 
@@ -72,7 +86,10 @@ table(dff.JMP$Chromosome)
     ## 108 254 211
 
 ``` r
+<<<<<<< HEAD
 # "Relocation - different chromosome"
+=======
+>>>>>>> origin/main
 table(dff.SEQ$Chromosome)
 ```
 
@@ -81,7 +98,10 @@ table(dff.SEQ$Chromosome)
     ## 118 246 204
 
 ``` r
+<<<<<<< HEAD
 # "Alignment gaps - all"
+=======
+>>>>>>> origin/main
 table(dff.GAP$Chromosome)
 ```
 
