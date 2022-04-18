@@ -94,6 +94,7 @@ dev.off()
 
 ### Get table of annotations for ROCK-RNA.diff-from-wgs missense. 
 ### Make a table of genes and annotations that might have RNA editing sites. 
+setwd("D:/Aedes_Nanopore_Genomes/5_AnnotatedAssemblies/RK/ROCKv4/gFACs_output/")
 annotations <- read.delim("ROCKv4.braker.comprehensive.entap_no_contam_lvl4.tsv", sep="\t", header=T)
 
 #### Have to fix the gene ids so that they match the changes required to make snpEff work. What a mess!!! 
@@ -111,6 +112,7 @@ Informative <- annotations %>% select(Query.Sequence, Subject.Sequence, Descript
                                  Protein.Database, Protein.Description)
 
 write.table(Informative, row.names=F, quote=F, file="D:/Aedes_Nanopore_Genomes/5_AnnotatedAssemblies/RK/ROCKv4/Entap/RK_F3_v4.Comprehensive.Uniq.braker.out/RK_F3.v4.braker.annotations.usefulColsOnly.tsv")
+write.csv(Informative, row.names=F, quote=F, file="D:/Aedes_Nanopore_Genomes/5_AnnotatedAssemblies/RK/ROCKv4/Entap/RK_F3_v4.Comprehensive.Uniq.braker.out/RK_F3.v4.braker.annotations.usefulColsOnly.csv")
 
 RNA.edited <- Informative %>% filter(Query.Sequence %in% misSNPs.df$GeneID) # 2,512 genes
 write.table(RNA.edited, "Z:/Shared Documents/Cera Fisher/DraftPublications/ROCKGenome/Supplementals/RNA_editing_missense_diff-from-wgs2.txt", row.names=F, quote=F, sep="\t")
@@ -169,3 +171,76 @@ synTsTv2 <- countSynTv/countSynTs
 ### synonymous raw Ts/Tv ratio is 1:0.57 
 
 sessionInfo()
+library(dplyr)
+library(ggplot2)
+getwd()
+setwd("../snpEff_out/")
+RNAnonref50nonwgs <- read.delim("ROCK-RNA-nonref50-nonwgs-annotated.tab", sep="\t", header=F)
+colnames(RNAnonref50nonwgs) <- c("Type", "Impact", "Chrom", "Pos", "Ref", "Alt", "GeneID", 
+                                 "nucl", "prot", "rank")
+## "rank" here refers to whether this is the first, second, third etc. annotation at this position. 
+
+RNAnonref50nonwgsnonrepet <- RNAnonref50nonwgs %>% filter(rank==1)
+## leaves us with 15,453 instead of 23,318 
+
+RNA3 <- RNAnonref50nonwgsnonrepet
+
+RNA3 <- RNA3 %>% mutate(mutation=paste(Ref, Alt))
+table(RNA3$mutation)
+
+RNA3 <- RNA3 %>% mutate(type = case_when(
+  mutation == "A G" ~ "Ts", 
+  mutation == "C T" ~ "Ts", 
+  mutation == "G A" ~ "Ts", 
+  mutation == "T A" ~ "Ts", 
+  TRUE ~ "Tv"
+))
+
+RNA3Mutation.counts <- RNA3 %>% group_by(mutation) %>% count(mutation)
+RNA3Mutation.counts <- RNA3Mutation.counts %>% filter(n>10)
+RNA3Mutation.counts
+
+
+RNA3.mis <- RNA3 %>% filter(Type == "missense_variant")
+## 1,887
+table(RNA3.mis$mutation)
+
+
+
+###### Let's look at the following case:
+###### Variant is present in ROCK-RNA reads at 0.75 non-ref allele frequency. 
+###### Variant is not present in RK_G1 (whole-genome sequencing data)
+###### Variant does not fall in an area of "coverage outliers" for RK_G1 
+######    (which means if it were present in the WGS pool-seq, it would 
+######     have been detected.)
+getwd()
+RNA75 <- read.table("../snpEff_out/ROCK-RNA.nonref75.snpEff_annotated.tab", sep="\t", 
+                    header=TRUE)
+
+### There are 312 variants annotated here -- but there were not that many SNPs, 
+### some of them have been double-annotated. 
+
+RNA75snps <- read.table("../ROCK-RNA-nonref75.notinwgs.notInCovOutliers.bed", sep="\t", 
+                        header=F)
+### There are only 292 SNPs. 
+### Let's be smart about how we deal with the "double-counting" problem and 
+### take a look at the ones that have multiple annotations. 
+
+max(RNA75$Rank)
+## OK, none of them have more than 2 annotations, that's good 
+
+RNA75_doubles <- filter(RNA75, Rank == 2)
+## there's only 20 of these -- filtering on Rank == 2 only gives me their second annotation though 
+
+## Can I safely filter on Position? Or do I actually have duplicate Positions on different chromosomes? 
+RNA75 %>% group_by(Position) %>% count(Position) %>% filter(n>2)
+## nah we're good 
+
+RNA75_troubles <- RNA75 %>% filter(Position %in% RNA75_doubles$Position)
+## as expected, that dataframe has 40 entries -- one for each of our 20 double-counted variants 
+View(RNA75_troubles)
+write.table(RNA75_troubles, file="out/DoubleCounted_RNASNPs.txt", sep="\t", quote=F, row.names = F)
+## The results aren't so bad. It looks like the double-counting is resulting 
+## almost entirely from duplicative gene models from Braker. Alas, that can't really 
+## be helped right now. 
+

@@ -5,6 +5,7 @@ getwd()
 
 
 SNPs.df <- read.table("D:/Aedes_Illumina_Genomes/Analysis/Variants/ROCKv4_SNPs/RK_G1.redo.SNPdensity.RK_bigwindows-750-250kb.bed", sep="\t", header=FALSE)
+setwd("D:/Aedes_Illumina_Genomes/Analysis/Variants/ROCKv4_SNPs/")
 colnames(SNPs.df) <- c("Chrom", "Start", "End", "Count")
 
 
@@ -18,7 +19,7 @@ plot <- ggplot(data=SNPs.df) +
   geom_line(aes(x=Mid, y=Count), color = "darkolivegreen4") +
   scale_x_continuous(expand=c(0.01,0.01)) +
   facet_grid(rows = vars(Chrom)) + 
-  theme_light() + 
+  theme_crf() + 
   labs(title="SNP density across ROCK genome") + 
   xlab("Sliding windows (750kb, incremented by 250kb)") + 
   ylab("Count of SNPs in window")
@@ -75,12 +76,7 @@ plot <- ggplot(data=SNPs.df) +
   geom_line(data=SNPs.df, aes(x=Mid, y=Count), size=0.05, color = "black") +
   scale_x_continuous(expand=c(0.01,0.01)) +
   facet_grid(rows = vars(Chrom)) + 
-  theme(
-    plot.title=element_text(size=48), 
-    axis.title=element_text(size=36),
-    axis.text=element_text(size=24), 
-    strip.text.y=element_text(size=24)
-  ) + 
+  theme_crf_big() + 
   labs(title="SNP density across ROCK genome", 
        x="Sliding windows (750kb, incremented by 250kb)", 
        y="Count of SNPs in window") 

@@ -1,5 +1,11 @@
 #!/usr/bin/env perl
-#
+##############################################################################################
+# Usage: perl SNPAnnotationsToTable_all.pl <annotated vcf file> <tab-delimited output file>  #
+# This parses a VCF file annotated by snpEff and exports the values of the ANN INFO field to #
+# a tab-delimited file. If one SNP has multiple annotations appended to it, this script will #
+# create a row for each annotation, repeating the coordinate and allele information, and will#
+# enumerate the "rank" of each annotation in order from first to last.                       #
+##############################################################################################
 use warnings;
 use strict;
 
@@ -10,9 +16,7 @@ open(IN, "<", $infile) or die "I cannot open ".$infile.", sorry!";
 #open(OUT, ">>", $outfile) or die "I cannot open".$outfile.", sorry!"; # to append
 open(OUT, ">", $outfile) or die "I cannot open ".$outfile.", sorry!";
 
-
-#my %subCounts = ();
-
+print OUT "Type \t Impact \t Chromosome \t Position \t Ref \t Alt \t geneID \t NuclVar \t ProtVar \t Rank \n";
 while(<IN>) {
     my $line = $_;
     chomp $line;
@@ -22,27 +26,40 @@ while(<IN>) {
     my $Pos = $Cols[1];
     my $RefNT = $Cols[3];
     my $AltNT = $Cols[4];
-    my $Info = $Cols[7];   ## <<< that's where all the chunky goodnes iss
-    my $annotations = $Info =~ s/^.*ANN=(.*$)/$1/r;
-    #print OUT "annotations: ".$annotations."\n";
-    ### Here's what some of those look like:
-    ###annotations: C|missense_variant|MODERATE|jg23729|jg23729|transcript|jg23729.t1|protein_coding|5/8|n.3650T>C|p.Val1217Ala|3650/4686|3650/-1|1217/-1||
-###annotations: A|missense_variant|MODERATE|jg23729|jg23729|transcript|jg23729.t1|protein_coding|5/8|n.3665G>A|p.Ser1222Asn|3665/4686|3665/-1|1222/-1||A
-###annotations: T|missense_variant|MODERATE|jg23759|jg23759|transcript|jg23759.t1|protein_coding|4/4|n.529G>A|p.Glu177Lys|529/648|529/-1|177/-1||,T|downstream_gene_variant|MODIFIER|65307|65307|transcript|65307_t|protein_coding||n.*349C>T|||||349|,T|downstream_gene_variant|MODIFIER|jg23758|jg23758|transcript|jg23758.t1|protein_coding||n.*349C>T|||||349|
-###annotations: T|missense_variant|MODERATE|65620|65620|transcript|65620_t|protein_coding|1/4|n.2368G>A|p.Glu790Lys|2368/3417|2368/-1|790/-1||,T|missense_variant|MODERATE|jg23969|jg23969|transcript|jg23969.t1|protein_coding|2/5|n.2683G>A|p.Glu895Lys|2683/3732|2683/-1|895/-1||
-    my @annots = split(',', $annotations);
-    ## we probably just want the first one, but let's check them all, who knows how many there are...
+    my $Info = $Cols[7];   ### This contains the ENTIRE <INFO> field for the vcf.
+                           ### For reference, the INFO field of vcf files can be gnarly --
+                           ### It is a semicolon-delimited list of the defined INFO types (defined in the VCF header)
+                           ### Which all start with "ABBREV=".
+    my $annotations = $Info =~ s/^.*ANN=(.*$)/$1/r; # I can get away with just isolating the ANN field
+                                                    # like this because it's the last entry in my annotated VCF, but
+                                                    # if it were not, we could try splitting the field on semicolons
+                                                    # and looping through it to find the entry that started with "ANN="
+### The entry in the ANN field is a comma-delimited list of variant-annotations; each annotation is a
+### pipe-delimited list of values produced by snpEff. (It has to be pipe-delimited; semicolons, commas, underscores, and dots are already used.)
+### ~~~~ This should be a json-format file. You know it, I know it, and the people of the world know it.
+### ~~~~ But we're not going to change entrenched data formats -- we just have to work with them.
+###
+### Here are some example annotations:
+###annotations: T|missense_variant|MODERATE|jg23759|jg23759|transcript|jg23759.t1|protein_coding|4/4|n.529G>A|p.Glu177Lys|529/648|529/-1|177/-1||,
+###             T|downstream_gene_variant|MODIFIER|65307|65307|transcript|65307_t|protein_coding||n.*349C>T|||||349|,
+###             T|downstream_gene_variant|MODIFIER|jg23758|jg23758|transcript|jg23758.t1|protein_coding||n.*349C>T|||||349|
+###
+    my @annots = split(',', $annotations); # split the annotations for this line on commas
+    my $count=0;                           # start counting to keep track of annotation rank order
     foreach(@annots) {
-        my $variant = $_ =~ s/\|/;/gr;
-        my @variant = split(';', $variant);
-        print $variant[2] . "\n";
+        $count++; # increment the count (the first one is "1"!)
+        my $variant = $_ =~ s/\|/;/gr;  # Replace the pipe delimiter with a semicolon delimiter, because
+                                        # splitting on the pipe is tricky (because pipes mean "or" in regular expressions)
+        my @variant = split(';', $variant); # Now we split on the semicolon
         my $geneID = $variant[3];
         my $type = $variant[1];
         my $impact = $variant[2];
         my $n = $variant[9];
         my $p = $variant[10];
-        print $type."\t".$impact."\t".$chrom."\t".$Pos."\t".$RefNT ."\t".$AltNT ."\t".$geneID ."\t".$n ."\t".$p."\n";
-        print OUT $type."\t".$impact."\t".$chrom."\t".$Pos."\t".$RefNT ."\t".$AltNT ."\t".$geneID ."\t".$n ."\t".$p."\n";
+        # For right now, I'm printing to the screen what's also going to the outfile, to simplify debugging
+        my $output = $type."\t".$impact."\t".$chrom."\t".$Pos."\t".$RefNT ."\t".$AltNT ."\t".$geneID ."\t".$n ."\t".$p."\t".$count."\n";
+        print $output;
+        print OUT $output;
     }
 }
 
