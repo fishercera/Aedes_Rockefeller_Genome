@@ -10,7 +10,7 @@ colnames(SNPs.df) <- c("Chrom", "Start", "End", "Count")
 
 
 
-SNPs.df <- mutate(SNPs.df, Mid = as.integer(Start + 125000))
+SNPs.df <- mutate(SNPs.df, Mid = as.integer(End - (750000/2)))
 
 ### Were the ten extra windows just MTs? I didn't want those... 
 SNPs.df <- filter(SNPs.df, Chrom != "MT_RagTag")
@@ -19,7 +19,6 @@ plot <- ggplot(data=SNPs.df) +
   geom_line(aes(x=Mid, y=Count), color = "darkolivegreen4") +
   scale_x_continuous(expand=c(0.01,0.01)) +
   facet_grid(rows = vars(Chrom)) + 
-  theme_crf() + 
   labs(title="SNP density across ROCK genome") + 
   xlab("Sliding windows (750kb, incremented by 250kb)") + 
   ylab("Count of SNPs in window")
@@ -38,10 +37,16 @@ dev.off()
 ### Coverage plots: 
 cov <- read.table("D:/Aedes_Illumina_Genomes/Analysis/Variants/ROCKv4_SNPs/ROCK_coverage_with_Chrom3End_250kb.bed", header=FALSE)
 kbcov <- read.table("D:/Aedes_Illumina_Genomes/Analysis/Variants/ROCKv4_SNPs/ROCK_coverage_1kb.bed", sep="\t", header=F)
+improved_cov <- read.table("D:/Aedes_Illumina_Genomes/Analysis/Variants/ROCKv4_SNPs/RK_coverage_bigwindows_summed.bed", sep="\t", header=F)
+tail(improved_cov)
+## It include an MT window, delete!)
+improved_cov <- improved_cov[-5281, ]
+tail(improved_cov)
 ### kbcov is 140,000 windows, so we really can't plot it nicely across the genome. 
 ### But I do want to compare for myself kbcov vs 250kb cov. 
 colnames(cov) <- c("Chr", "start", "end", "meanQ", "medianQ", "count")
 colnames(kbcov) <- c("Chr", "start", "end", "meanQ", "medianQ", "count")
+colnames(improved_cov) <- c("Chr", "start", "end", "count")
 cov$meanQ <- as.numeric(cov$meanQ)
 cov$medianQ <- as.numeric(cov$medianQ)
 summary(na.omit(cov$medianQ))
@@ -51,17 +56,27 @@ cov <- cov %>% select(Chr, start, end, count)
 kbcov <- kbcov %>% select(Chr, start, end, count)
 colnames(cov) <- c("Chrom", "Start", "End", "Count")
 colnames(kbcov) <- c("Chrom", "Start", "End", "Count")
+colnames(improved_cov) <- c("Chrom", "Start", "End", "Count")
 table(cov$Chrom)
 table(kbcov$Chrom) # oh no it includes all the non-chromosomal scaffolds 
 kbcov <- kbcov %>% filter(Chrom == c("1_RagTag", "2_RagTag", "3_RagTag"))
 table(kbcov$Chrom)
+table(improved_cov$Chrom)
+
 cov <- cov %>%
-  mutate(coverage = Count*200/250000) ## I counted these in non-sliding windows -- 250000kb each 
+  mutate(coverage = (Count*200)/250000) ## I counted these in non-sliding windows -- 250000kb each 
 summary(cov$coverage)                 ## to more accurately reflect coverage where SNPs were being counted
+### EXCEPT, it's totally wrong, isn't it? The start points are all the same, but 
+### the end points aren't!! 
 
 kbcov <- kbcov %>% 
-  mutate(coverage = Count*200/1000)
+  mutate(coverage = (Count*200)/1000)
 summary(kbcov$coverage)
+
+improved_cov <- improved_cov %>% 
+  mutate(coverage = (Count*200)/750000)
+summary(improved_cov$coverage)
+
 
 #### OK, they are about the same, and the mean is right around 25x. It's a little lower in the 250kb coverage, 
 #### but it's also just got a smaller range. 
@@ -70,30 +85,54 @@ summary(kbcov$coverage)
 ## Plotting SNPs overlaid on coverage 
 
 plot <- ggplot(data=SNPs.df) +
-  geom_area(data=cov, aes(x=Start+125000, y=coverage*20), alpha=0.5, fill="darkolivegreen4")+
+  geom_area(data=cov, aes(x=End-125000, y=coverage*20), alpha=0.5, fill="darkolivegreen4")+
   ### Multiplied coverage by 20 so that it's actually visible. 
   ### We dono't have a scale 
   geom_line(data=SNPs.df, aes(x=Mid, y=Count), size=0.05, color = "black") +
   scale_x_continuous(expand=c(0.01,0.01)) +
   facet_grid(rows = vars(Chrom)) + 
-  theme_crf_big() + 
+#  theme_crf_big() + 
   labs(title="SNP density across ROCK genome", 
        x="Sliding windows (750kb, incremented by 250kb)", 
        y="Count of SNPs in window") 
 
 plot
+
+plot2 <- ggplot(data=SNPs.df) +
+  geom_area(data=improved_cov, aes(x=End-(2/750000), y=coverage*20), alpha=0.5, fill="darkolivegreen4")+
+  ### Multiplied coverage by 20 so that it's actually visible. 
+  ### We dono't have a scale 
+  geom_line(data=SNPs.df, aes(x=Mid, y=Count), size=0.05, color = "black") +
+  scale_x_continuous(expand=c(0.01,0.01)) +
+  facet_grid(rows = vars(Chrom)) + 
+  #  theme_crf_big() + 
+  labs(title="SNP density across ROCK genome", 
+       x="Sliding windows (750kb, incremented by 250kb)", 
+       y="Count of SNPs in window") 
+
+plot2 
+
 getwd()
-jpeg("SNPDensityAcrossRockGenome_OverlaidOnCoverage.jpg", width=2000, height=2000)
+jpeg("SNPDensityAcrossRockGenome_OverlaidOnCoverage_WrongCoverage.jpg", width=2000, height=2000)
 plot
 dev.off()
 
-png("SNPDensityAcrossRockGenome_OverlaidOnCoverage.png", width=2000, height=2000)
+jpeg("SNPDensityAcrossRockGenome_OverlaidOnCoverage_RightCoverage.jpg", width=2000, height=2000)
+plot2
+dev.off()
+
+png("SNPDensityAcrossRockGenome_OverlaidOnCoverage_WrongCoverage.png", width=2000, height=2000)
 plot
 dev.off()
 
-table(cov$Chrom)
-plot <- ggplot(data=cov) +
-  geom_area(data=cov, aes(x=Start+125000, y=coverage), alpha=0.5, fill="darkolivegreen4")+
+png("SNPDensityAcrossRockGenome_OverlaidOnCoverage_RightCoverage.png", width=2000, height=2000)
+plot2
+dev.off()
+
+
+table(improved_cov$Chrom)
+plot <- ggplot(data=improved_cov) +
+  geom_area(data=improved_cov, aes(x=End-(2/750000), y=coverage), alpha=0.5, fill="darkolivegreen4")+
   #geom_line(data=SNPs.df, aes(x=Mid, y=Count), color = "black") +
   scale_x_continuous(expand=c(0.01,0.01)) +
   facet_grid(rows = vars(Chrom)) + 
@@ -105,24 +144,26 @@ plot <- ggplot(data=cov) +
   ) +
   labs(title="Illumina read coverage in 250kb windows", 
        x="Genome position of window midpoint", 
-       y="Coverage (read length * read count / 250000)") 
+       y="Coverage (read length * read count / 750000)") 
   
 plot
-png("JustCoverageTracks2.png", width=2000)
+png("JustCoverageTracks2_RightCoverage.png", width=2000)
 plot
 dev.off()
 
 
 
-SNPs.df[is.na(match(cov$Start, SNPs.df$Start)),] ## No missing blocks 
+SNPs.df[is.na(match(improved_cov$Start, SNPs.df$Start)),] ## No missing blocks 
 
 SNPs.df <- SNPs.df %>% mutate(win.id = paste(Chrom, "_", Start, sep=""))
-cov <- cov %>% mutate(win.id = paste(Chrom, "_", Start, sep=""))
+improved_cov <- improved_cov %>% mutate(win.id = paste(Chrom, "_", Start, sep=""))
 
-df <- full_join(SNPs.df, cov, by="win.id")
+df <- full_join(SNPs.df, improved_cov, by="win.id")
 colnames(df)
 df <- df %>% select("Chrom.x", "Start.x", "End.x", "Count.x", "win.id", "Count.y", "coverage")
 colnames(df) <- c("Chrom", "Start", "End", "SNPs.Count", "win.id", "Reads.Count", "coverage")
+
+cor(df$SNPs.Count, df$coverage, method = "pearson")
 
 ## Normalizing SNPs count by coverage 
 df <- df %>% mutate(SNPs_by_cov = SNPs.Count/coverage)
@@ -137,10 +178,10 @@ newplotdf2 <- newplotdf[!is.na(newplotdf$SNPs_by_cov), ]
 newplotdf2 <- newplotdf2 %>% mutate(log2SNPs = log2(SNPs_by_cov+.01))
 
 plot <- ggplot(data=newplotdf2) +
-  geom_line(data=newplotdf2, aes(x=End-125000, y=SNPs_by_cov), color="darkolivegreen4")+
+  geom_line(data=newplotdf2, aes(x=End-(750000/2), y=(SNPs_by_cov+0.0001)), color="darkolivegreen4")+
   #geom_line(data=SNPs.df, aes(x=Mid, y=Count), color = "black") +
   scale_x_continuous(expand=c(0.01,0.01)) +
-  scale_y_continuous(trans='log10') + 
+  #scale_y_continuous(trans='log10') + 
   facet_grid(rows = vars(Chrom)) + 
   theme_minimal() + 
   theme(aspect.ratio=0.1) +
@@ -149,12 +190,22 @@ plot <- ggplot(data=newplotdf2) +
        Mean=56.10 (sd = 68.67), Median=44.43, Max=1791.33") + 
   xlab("Sliding windows (750kb, incremented by 250kb)") + 
   ylab("Count of SNPs per bases mapped") 
+plot
+
+df_nozeroes <- df %>% mutate(CorrectedSNPs_by_cov = case_when(
+  SNPs_by_cov > 1 ~ SNPs_by_cov, 
+  SNPs_by_cov == 0 ~ (SNPs_by_cov+0.001)
+))
+
+summary(df$SNPs_by_cov)
+summary(df_nozeroes$CorrectedSNPs_by_cov)
+
 
 summary(newplotdf2$SNPs_by_cov)
 sd(newplotdf2$SNPs_by_cov)
 library(ggplot2)
 plot <- ggplot(data=newplotdf2) +
-  geom_line(data=newplotdf2, aes(x=End-125000, y=SNPs_by_cov), color="darkolivegreen4")+
+  geom_line(data=newplotdf2, aes(x=End-(750000/2), y=SNPs_by_cov), color="darkolivegreen4")+
   #geom_line(data=SNPs.df, aes(x=Mid, y=Count), color = "black") +
   scale_x_continuous(expand=c(0.01,0.01)) +
   scale_y_continuous(trans='log10') + 
@@ -167,8 +218,28 @@ plot <- ggplot(data=newplotdf2) +
   xlab("Sliding windows (750kb, incremented by 250kb)") + 
   ylab("Count of SNPs per bases mapped") 
 
+plot
+
+plot2 <- ggplot(data=df_nozeroes) +
+  geom_line(data=df_nozeroes, aes(x=End-(750000/2), y=CorrectedSNPs_by_cov), color="darkolivegreen4")+
+  #geom_line(data=SNPs.df, aes(x=Mid, y=Count), color = "black") +
+  scale_x_continuous(expand=c(0.01,0.01)) +
+  scale_y_continuous(trans='log10') + 
+  facet_grid(rows = vars(Chrom)) + 
+  theme_minimal() + 
+  theme(aspect.ratio=0.1) +
+  labs(title="SNP density across ROCK genome", 
+       caption="Dividing SNP counts by coverage reveals several islands of high and low polymorphism.
+       Mean=57.56 (sd = 70.78), Median=45.37, Max=1891.45") + 
+  xlab("Sliding windows (750kb, incremented by 250kb)") + 
+  ylab("Count of SNPs per bases mapped") 
+
+plot2
+
+
+
 plot2 <- ggplot(data=newplotdf2) +
-  geom_line(data=newplotdf2, aes(x=Start+125000, y=log2SNPs), color="darkolivegreen4")+
+  geom_line(data=newplotdf2, aes(x=Start+375000, y=log2SNPs), color="darkolivegreen4")+
   #geom_line(data=SNPs.df, aes(x=Mid, y=Count), color = "black") +
   scale_x_continuous(expand=c(0.01,0.01)) +
   facet_grid(rows = vars(Chrom)) + 
@@ -179,7 +250,7 @@ plot2 <- ggplot(data=newplotdf2) +
   xlab("Sliding windows (750kb, incremented by 250kb)") + 
   ylab("log2(SNPs per bases mapped)")
 
-
+plot2
 
 corr <- cor(as.numeric(newplotdf2$SNPsCount), 
             as.numeric(newplotdf2$ReadCount), 
